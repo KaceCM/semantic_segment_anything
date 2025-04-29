@@ -30,7 +30,7 @@ from oneformer import oneformer_coco_segmentation, oneformer_ade20k_segmentation
 from blip import open_vocabulary_classification_blip
 
 
-MODEL_CACHE = "model_cache"
+MODEL_CACHE = "D:/MODELS/ssa"
 
 
 class ModelOutput(BaseModel):
