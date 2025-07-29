@@ -8,7 +8,8 @@ import cv2
 import torch
 from PIL import Image
 import mmcv
-from mmdet.core.visualization.image import imshow_det_bboxes
+import mmengine
+# from mmdet.core.visualization.image import imshow_det_bboxes
 import numpy as np
 import pycocotools.mask as maskUtils
 
@@ -285,14 +286,15 @@ def semantic_annotation_pipeline(
         class_names.append(ann["class_name"])
         bitmasks.append(maskUtils.decode(ann["segmentation"]))
 
-    mmcv.dump(anns, json_out)
-    imshow_det_bboxes(
-        img,
-        bboxes=None,
-        labels=np.arange(len(bitmasks)),
-        segms=np.stack(bitmasks),
-        class_names=class_names,
-        font_size=25,
-        show=False,
-        out_file=seg_out,
-    )
+    mmengine.dump(anns, json_out)
+    # imshow_det_bboxes(
+    #     img,
+    #     bboxes=None,
+    #     labels=np.arange(len(bitmasks)),
+    #     segms=np.stack(bitmasks),
+    #     class_names=class_names,
+    #     font_size=25,
+    #     show=False,
+    #     out_file=seg_out,
+    # )
+    print("IMSHOW DET BBOXES")

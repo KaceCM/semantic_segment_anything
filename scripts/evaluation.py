@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from mmseg.core import add_prefix
+from mmseg.utils.misc import add_prefix
 from mmseg.ops import resize
 from mmcv.utils import print_log
 
@@ -15,7 +15,8 @@ from collections import OrderedDict
 import pycocotools.mask as maskUtils
 from prettytable import PrettyTable
 from torchvision.utils import save_image, make_grid
-from mmseg.core import eval_metrics, intersect_and_union, pre_eval_to_metrics
+from mmseg.evaluation.metrics.coremetrics import intersect_and_union, pre_eval_to_metrics
+from mmseg.utils.misc import intersect_and_union
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Semantically segment anything.')

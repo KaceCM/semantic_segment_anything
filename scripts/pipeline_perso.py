@@ -3,10 +3,12 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 import mmcv
+import mmengine
 from tqdm import tqdm
-from mmcv.utils import print_log
-from mmdet.core.visualization.image import imshow_det_bboxes
-from mmseg.core import intersect_and_union, pre_eval_to_metrics
+from mmengine import print_log
+# from mmdet.core.visualization.image import imshow_det_bboxes
+from mmseg.evaluation.metrics.coremetrics import pre_eval_to_metrics
+from mmseg.utils.misc import intersect_and_union
 from collections import OrderedDict
 from prettytable import PrettyTable
 import numpy as np
@@ -117,20 +119,20 @@ def semantic_annotation_pipeline(filename, data_path, output_path, rank, save_im
         del mask_categories
         del class_ids_patch_huge
         
-    mmcv.dump(anns, os.path.join(output_path, filename + '_semantic.json'))
+    mmengine.dump(anns, os.path.join(output_path, filename + '_semantic.json'))
     print('[Save] save SSA-engine annotation results: ', os.path.join(output_path, filename + '_semantic.json'))
     if save_img:
         for ann in anns['annotations']:
             bitmasks.append(maskUtils.decode(ann['segmentation']))
-        imshow_det_bboxes(img,
-                    bboxes=None,
-                    labels=np.arange(len(bitmasks)),
-                    segms=np.stack(bitmasks),
-                    class_names=class_names,
-                    font_size=25,
-                    show=False,
-                    out_file=os.path.join(output_path, filename+'_semantic.png'))
-
+        # imshow_det_bboxes(img,
+        #             bboxes=None,
+        #             labels=np.arange(len(bitmasks)),
+        #             segms=np.stack(bitmasks),
+        #             class_names=class_names,
+        #             font_size=25,
+        #             show=False,
+        #             out_file=os.path.join(output_path, filename+'_semantic.png'))
+        print("IMSHOW DET BBOXES")
     # Delete variables that are no longer needed
     del img
     del anns
@@ -205,16 +207,19 @@ def semantic_segment_anything_inference(filename, output_path, rank, img=None, s
         anns['semantic_mask'][str(sematic_class_in_img[i].item())]['counts'] = anns['semantic_mask'][str(sematic_class_in_img[i].item())]['counts'].decode('utf-8')
     
     if save_img:
-        imshow_det_bboxes(img,
-                            bboxes=None,
-                            labels=np.arange(len(sematic_class_in_img)),
-                            segms=np.stack(semantic_bitmasks),
-                            class_names=semantic_class_names,
-                            font_size=25,
-                            show=False,
-                            out_file=os.path.join(output_path, filename + '_semantic.png'))
+        # imshow_det_bboxes(img,
+        #                     bboxes=None,
+        #                     labels=np.arange(len(sematic_class_in_img)),
+        #                     segms=np.stack(semantic_bitmasks),
+        #                     class_names=semantic_class_names,
+        #                     font_size=25,
+        #                     show=False,
+        #                     out_file=os.path.join(output_path, filename + '_semantic.png'))
+        print("IMSHOW DET BBOXES")
         print('[Save] save SSA prediction: ', os.path.join(output_path, filename + '_semantic.png'))
-    mmcv.dump(anns, os.path.join(output_path, filename + '_semantic.json'))
+        # saving image :
+
+    mmengine.dump(anns, os.path.join(output_path, filename + '_semantic.json'))
 
     # Store the results before cleanup
     result = {
