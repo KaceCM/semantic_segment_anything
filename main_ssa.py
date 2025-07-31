@@ -15,27 +15,16 @@ printr(f"Using device: {DEVICE}")
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Semantically segment anything.')
-    # parser.add_argument('--data_dir', help='specify the root path of images and masks')
     parser.add_argument('--img_path', help='specify the root path of images and masks')
     parser.add_argument('--save_masks', default=True, action='store_true', help='whether to save masks')
     parser.add_argument('--ckpt_path', default='ckp/sam_vit_h_4b8939.pth', help='specify the root path of SAM checkpoint')
     parser.add_argument('--out_dir', help='the dir to save semantic annotations')
     parser.add_argument('--save_img', default=False, action='store_true', help='whether to save annotated images')
-    parser.add_argument('--world_size', type=int, default=0, help='number of nodes')
-    parser.add_argument('--dataset', type=str, default='ade20k', choices=['ade20k', 'cityscapes', 'foggy_driving'], help='specify the set of class names')
-    parser.add_argument('--eval', default=False, action='store_true', help='whether to execute evalution')
-    parser.add_argument('--gt_path', default=None, help='specify the path to gt annotations')
-    parser.add_argument('--model', type=str, default='segformer', choices=['oneformer', 'segformer'], help='specify the semantic branch model')
     args = parser.parse_args()
     return args
     
 def main(rank, args):
     printr('STARTING MAIN FUNCTION')
-
-    # printr('SETTING DIST INITPROCESS')
-    # dist.init_process_group("nccl", rank=rank, world_size=args.world_size)
-    # printr('DIST INIT DONE')
-
 
     printr('[Model loading] Loading SAM model...')
     sam = sam_model_registry["vit_h"](checkpoint=args.ckpt_path).to(rank)
@@ -88,9 +77,7 @@ def main(rank, args):
                                 semantic_branch_processor=semantic_branch_processor,
                                 semantic_branch_model=semantic_branch_model,
                                 mask_branch_model=mask_branch_model,
-                                dataset=args.dataset,
-                                id2label=id2label,
-                                model=args.model)
+                                id2label=id2label)
         printr('[Inference done] Semantic segmentation inference is done.')
         
     

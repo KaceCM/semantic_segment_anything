@@ -1,4 +1,5 @@
 CONFIG = {
+    
   "id2label": {
     "0": "wall",
     "1": "building",

@@ -16,10 +16,6 @@ def oneformer_ade20k_segmentation(image, oneformer_ade20k_processor, oneformer_a
     return predicted_semantic_map
 
 def img_load(data_path, filename):
-    # img = mmcv.imread(os.path.join(data_path, filename))
-
-    # printr(f"TYPE IMAGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE : {type(img)}")
-    # input()
     img = Image.open(os.path.join(data_path, filename)).convert('RGB')
     img_ndarray = np.array(img)
     return img_ndarray
@@ -28,9 +24,7 @@ def semantic_segment_anything_inference(filename, output_path, rank, img=None, s
                                  semantic_branch_processor=None,
                                  semantic_branch_model=None,
                                  mask_branch_model=None,
-                                 dataset=None,
-                                 id2label=None,
-                                 model='segformer'):
+                                 id2label=None,):
 
     printr('[Inference] Starting semantic segmentation inference...')
 
