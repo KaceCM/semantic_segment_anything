@@ -20,7 +20,10 @@ from clipseg import clipseg_segmentation
 from oneformer import oneformer_coco_segmentation, oneformer_ade20k_segmentation
 from blip import open_vocabulary_classification_blip
 from segformer import segformer_segmentation as segformer_func
-
+import matplotlib.pyplot as plt
+from matplotlib import colors
+from utils import printr
+from tqdm import tqdm
 oneformer_func = {
     'ade20k': oneformer_ade20k_segmentation,
 }
@@ -139,14 +142,8 @@ def semantic_annotation_pipeline(filename, data_path, output_path, rank, save_im
     del class_ids_from_oneformer_coco
     del class_ids_from_oneformer_ade20k
 
-def img_load(data_path, filename, dataset):
-    # load image
-    if dataset == 'ade20k':
-        img = mmcv.imread(os.path.join(data_path, filename+'.jpg'))
-    elif dataset == 'cityscapes' or dataset == 'foggy_driving':
-        img = mmcv.imread(os.path.join(data_path, filename+'.png'))
-    else:
-        raise NotImplementedError()
+def img_load(data_path, filename):
+    img = mmcv.imread(os.path.join(data_path, filename))
     return img
 
 def semantic_segment_anything_inference(filename, output_path, rank, img=None, save_img=False,
@@ -157,16 +154,36 @@ def semantic_segment_anything_inference(filename, output_path, rank, img=None, s
                                  id2label=None,
                                  model='segformer'):
 
+    printr('[Inference] Starting semantic segmentation inference...')
+
+    printr('Generating masks using AutomaticMaskGeneration')
     anns = {'annotations': mask_branch_model.generate(img)}
+    printr('Masks generated using AutomaticMaskGeneration')
+    
     h, w, _ = img.shape
     class_names = []
     masks_list = []  # List to store all masks
 
-    class_ids = oneformer_func[dataset](Image.fromarray(img), semantic_branch_processor,
-                                                                        semantic_branch_model, rank)
+    printr('[Inference] Starting OneFormer/SegFormer inference...')
+    class_ids = oneformer_func[dataset](Image.fromarray(img), semantic_branch_processor,semantic_branch_model, rank)
+    printr('[Inference done] OneFormer/SegFormer inference is done.')
+
+
+    printr('[Inference] Starting SegFormer inference...')
+    num_classes = int(class_ids.max().item()) + 1
+    cmap = plt.get_cmap('tab20', num_classes)
+    class_ids_np = class_ids.cpu().numpy().astype(np.uint8)
+    color_class_ids = cmap(class_ids_np / (num_classes if num_classes > 0 else 1))[:, :, :3]  # Drop alpha
+    color_class_ids = (color_class_ids * 255).astype(np.uint8)
+    out_path_raw = os.path.join(output_path, filename + '_oneformer_raw.png')
+    Image.fromarray(color_class_ids).save(out_path_raw)
+    printr(f'[Save] OneFormer/SegFormer raw output image saved to: {out_path_raw}')
+
+
+    printr('Starting for loop over annotations to generate semantic masks...')
     semantc_mask = class_ids.clone()
     anns['annotations'] = sorted(anns['annotations'], key=lambda x: x['area'], reverse=True)
-    for ann in anns['annotations']:
+    for ann in tqdm(anns['annotations']):
         valid_mask = torch.tensor(maskUtils.decode(ann['segmentation'])).bool()
         masks_list.append(valid_mask)  # Store each mask
         # get the class ids of the valid pixels
@@ -194,8 +211,10 @@ def semantic_segment_anything_inference(filename, output_path, rank, img=None, s
     
     sematic_class_in_img = torch.unique(semantc_mask)
     semantic_bitmasks, semantic_class_names = [], []
+    printr('Semantic masks generated...')
 
     # semantic prediction
+    printr('[Inference] Starting semantic prediction...')
     anns['semantic_mask'] = {}
     for i in range(len(sematic_class_in_img)):
         class_name = id2label['id2label'][str(sematic_class_in_img[i].item())]
@@ -205,8 +224,25 @@ def semantic_segment_anything_inference(filename, output_path, rank, img=None, s
         semantic_bitmasks.append(class_mask)
         anns['semantic_mask'][str(sematic_class_in_img[i].item())] = maskUtils.encode(np.array((semantc_mask == sematic_class_in_img[i]).cpu().numpy(), order='F', dtype=np.uint8))
         anns['semantic_mask'][str(sematic_class_in_img[i].item())]['counts'] = anns['semantic_mask'][str(sematic_class_in_img[i].item())]['counts'].decode('utf-8')
-    
+    printr('[Inference done] Semantic prediction is done.')
+
+    printr('[Save] Saving semantic masks and annotations...')
     if save_img:
+        # Save the semantic mask as a color image
+        
+        # Create a color map for the number of classes
+        num_classes = len(semantic_class_names)
+        cmap = plt.get_cmap('tab20', num_classes)
+        # Convert the semantic mask to a numpy array
+        semantc_mask_np = semantc_mask.cpu().numpy().astype(np.uint8)
+        # Create a color image using the class indices
+        color_mask = cmap(semantc_mask_np / (num_classes if num_classes > 0 else 1))[:, :, :3]  # Drop alpha
+        color_mask = (color_mask * 255).astype(np.uint8)
+        # Save the color mask as PNG
+        
+        out_path = os.path.join(output_path, filename + '_semantic_mask.png')
+        Image.fromarray(color_mask).save(out_path)
+        print(f'[Save] SegFormer/OneFormer semantic mask image saved to: {out_path}')
         # imshow_det_bboxes(img,
         #                     bboxes=None,
         #                     labels=np.arange(len(sematic_class_in_img)),
@@ -236,7 +272,7 @@ def semantic_segment_anything_inference(filename, output_path, rank, img=None, s
     del class_names
     del semantic_bitmasks
     del semantic_class_names
-
+    printr('[Inference done] Semantic segmentation inference is done.')
     return result  # Return the dictionary containing all masks and their associated information
 
 def eval_pipeline(gt_path, res_path, dataset):
