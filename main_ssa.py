@@ -1,13 +1,19 @@
 import os
 import argparse
 import torch
-import json
-import numpy as np
-from assets.utils import printr
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
-from transformers import OneFormerProcessor, OneFormerForUniversalSegmentation
+from assets.utils import printr, save_to_tensor, save_to_json, prepare_image
 
-from pipeline_ssa import semantic_segment_anything_inference, img_load
+
+from pipeline_ssa import (generate_random_masks,
+                          generate_oneformer_masks,
+                          save_raw_segformer_masks,
+                          generate_semantic_masks,
+                          generate_semantic_prediction,
+                          save_semantic_masks,
+                          load_mask_generator,
+                          load_semantic_branch)
+
+
 from assets.ade20k_id2label import CONFIG as CONFIG_ADE20K_ID2LABEL
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -15,7 +21,8 @@ printr(f"Using device: {DEVICE}")
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Semantically segment anything.')
-    parser.add_argument('--img_path', help='specify the root path of images and masks')
+    parser.add_argument('--img_path', default=None, help='specify the root path of images and masks')
+    parser.add_argument('--data_path', default=None, help='specify the root path of images and masks')
     parser.add_argument('--save_masks', default=True, action='store_true', help='whether to save masks')
     parser.add_argument('--ckpt_path', default='ckp/sam_vit_h_4b8939.pth', help='specify the root path of SAM checkpoint')
     parser.add_argument('--out_dir', help='the dir to save semantic annotations')
@@ -23,89 +30,84 @@ def parse_args():
     args = parser.parse_args()
     return args
     
-def main(rank, args):
+
+
+
+
+
+
+
+def main(args):
     printr('STARTING MAIN FUNCTION')
-
-    printr('[Model loading] Loading SAM model...')
-    sam = sam_model_registry["vit_h"](checkpoint=args.ckpt_path).to(rank)
-    printr('[Model loaded] SAM model is loaded.')
-
-    printr('[Model loading] Loading SAM mask branch...')
-    mask_branch_model = SamAutomaticMaskGenerator(
-        model=sam,
-        points_per_side=32,
-    
-        pred_iou_thresh=0.80,
-        stability_score_thresh=0.85,
-        crop_n_layers=0,
-        crop_n_points_downscale_factor=2,
-        min_mask_region_area=100,
-        output_mode='coco_rle',
-    )
-    printr('[Model loaded] Mask branch (SAM) is loaded.')
-    # yoo can add your own semantic branch here, and modify the following code
-
-    printr('[Model loading] Loading semantic branch model (oneformer)...')
-    cache_dir = os.path.dirname(args.ckpt_path)
-    semantic_branch_processor = OneFormerProcessor.from_pretrained(
-        "shi-labs/oneformer_ade20k_swin_large",
-        cache_dir=cache_dir
-        )
-    semantic_branch_model = OneFormerForUniversalSegmentation.from_pretrained(
-        "shi-labs/oneformer_ade20k_swin_large",
-        cache_dir=cache_dir
-        ).to(rank)
-    printr('[Model loaded] Semantic branch (your own segmentor) is loaded.')
     
     
-    image_name = os.path.basename(args.img_path)
-    image_name_no_ext = image_name.replace('.jpg', '').replace('.png', '')
-    image_path = os.path.dirname(args.img_path)
-    printr(f'Image name: {image_name}')
-    printr(f'Image path: {image_path}')
-
-    
-    printr('[Image loading] Loading image...')
-    img = img_load(image_path, image_name)
-    printr('[Image loaded] Image is loaded.')
-
+    printr(f'[Image path] Using single image: {args.img_path}')
+    img, image_name_no_ext = prepare_image(args)
     id2label = CONFIG_ADE20K_ID2LABEL
+
+
+
 
     printr('[Inference] Starting semantic segmentation inference...')
     with torch.no_grad():
-        result = semantic_segment_anything_inference(image_name_no_ext, args.out_dir, rank, img=img, save_img=args.save_img,
-                                semantic_branch_processor=semantic_branch_processor,
-                                semantic_branch_model=semantic_branch_model,
-                                mask_branch_model=mask_branch_model,
-                                id2label=id2label)
+        
+        mask_branch_model = load_mask_generator(args, DEVICE=DEVICE)
+        printr('[Inference] Generating masks...')
+        anns = generate_random_masks(mask_branch_model, img)
+        del mask_branch_model  # Free memory after generating masks
+        printr('[Inference done] Masks are generated.')
+
+        semantic_branch_processor, semantic_branch_model = load_semantic_branch(args, DEVICE=DEVICE)
+        printr('[Inference] Starting semantic segmentation inference...')
+        class_ids = generate_oneformer_masks(semantic_branch_processor, semantic_branch_model, img, DEVICE)
+        printr('[Inference done] Semantic segmentation inference is done.')
+        del semantic_branch_model, semantic_branch_processor
+
+        save_raw_segformer_masks(image_name_no_ext, args.out_dir, class_ids)
+
+        semantic_class_in_img, semantic_class_names, semantic_bitmasks, semantic_mask, class_names, masks_list = generate_semantic_masks(anns, class_ids, id2label)
+        anns, semantic_class_names, semantic_bitmasks = generate_semantic_prediction(anns, semantic_class_in_img, semantic_mask, id2label, semantic_bitmasks, semantic_class_names)
+
+        save_semantic_masks(output_path=args.out_dir, filename=image_name_no_ext, semantic_mask=semantic_mask, semantic_class_names=semantic_class_names)
+        
         printr('[Inference done] Semantic segmentation inference is done.')
         
-    
+        result = {
+        'instance_masks': masks_list,
+        'semantic_masks': semantic_bitmasks,
+        'class_names': class_names,
+        'semantic_class_names': semantic_class_names
+    }
+
         if args.save_masks:
             printr('[Saving results] Saving results...')
             save_to_tensor(result, args.out_dir, image_name_no_ext)
             save_to_json(result, args.out_dir, image_name_no_ext)
             printr('[Saving results done] Results are saved.')
             del result
+
+    del img
+    del anns
+    del class_ids
+    del semantic_mask
+    del class_names
+    del semantic_bitmasks
+    del semantic_class_names
+    del semantic_class_in_img
+    del masks_list
+    del id2label
+
             
 
     printr('MAIN FUNCTION DONE')
     return True
 
-def save_to_tensor(result, out_dir, file_name):
-    resultarray = np.array(result["semantic_masks"])
-    result["semantic_masks"] = torch.tensor(resultarray)
-    torch.save(result["semantic_masks"], os.path.join(out_dir, file_name + '_semantic_masks.pt'))
-    return True
 
-def save_to_json(result, out_dir, file_name):
-    with open(os.path.join(out_dir, file_name + '_info.json'), 'w') as f:
-        result.pop('semantic_masks')
-        result.pop('instance_masks')
-        json.dump(result, f, indent=4)
 
 if __name__ == '__main__':
     args = parse_args()
+    if not args.img_path and not args.data_path:
+        raise ValueError('Please specify either --img_path for a single image or --data_path for a directory of images.')
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
-    results = main(DEVICE, args)
+    results = main(args)
