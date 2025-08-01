@@ -112,6 +112,7 @@ output/
 .DS_Store
 output*
 bkup/
-ckp/
+ckp/*
+!ckp/.gitkeep
 *.pyc
 data_test
