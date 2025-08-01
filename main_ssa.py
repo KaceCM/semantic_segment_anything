@@ -20,6 +20,16 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 printr(f"Using device: {DEVICE}")
 
 def parse_args():
+    """Prepare arguments for the main function.\n
+    **Args**:
+        - img_path (str): Path to a single image.\n
+        **OR**\n
+        - data_path (str): Path to a directory containing images.\n
+        - save_masks (bool): Whether to save masks.\n
+        - ckp_path (str): Path to the SAM checkpoint.\n
+        - out_dir (str): Directory to save the output.\n
+        - save_img (bool): Whether to save annotated images.\n
+    """
     parser = argparse.ArgumentParser(description='Semantically segment anything.')
     parser.add_argument('--img_path', default=None, help='specify the root path of images and masks')
     parser.add_argument('--data_path', default=None, help='specify the root path of images and masks')
@@ -32,7 +42,26 @@ def parse_args():
     
 
 
-
+def prepare_args(img_path, data_path, save_masks, ckp_path, out_dir, save_img):
+    """Prepare arguments for the main function.\n
+    **Args**:
+        - img_path (str): Path to a single image.\n
+        **OR**\n
+        - data_path (str): Path to a directory containing images.\n
+        - save_masks (bool): Whether to save masks.\n
+        - ckp_path (str): Path to the SAM checkpoint.\n
+        - out_dir (str): Directory to save the output.\n
+        - save_img (bool): Whether to save annotated images.\n
+    """
+    args = argparse.Namespace(
+        img_path=img_path,
+        data_path=data_path,
+        save_masks=save_masks,
+        ckp_path=ckp_path,
+        out_dir=out_dir,
+        save_img=save_img
+    )
+    return args
 
 
 
