@@ -1,5 +1,5 @@
 
-# SSA Applier
+# Semantic-Segment-Anything
 
 This repository contains the code for the Semantic Segment Anything (SSA) Applier, which utilizes the Facebook's Segment Anything Model (SAM) to perform semantic segmentation tasks.
 
