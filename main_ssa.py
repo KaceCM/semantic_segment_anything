@@ -1,6 +1,12 @@
 import os
 import argparse
 import torch
+import sys
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+if dir_path not in sys.path:
+    sys.path.append(dir_path)
+
 from assets.utils import printr, save_to_tensor, save_to_json, prepare_image
 
 
@@ -26,7 +32,7 @@ def parse_args():
         **OR**\n
         - data_path (str): Path to a directory containing images.\n
         - save_masks (bool): Whether to save masks.\n
-        - ckp_path (str): Path to the SAM checkpoint.\n
+        - ckpt_path (str): Path to the SAM checkpoint.\n
         - out_dir (str): Directory to save the output.\n
         - save_img (bool): Whether to save annotated images.\n
     """
@@ -42,14 +48,14 @@ def parse_args():
     
 
 
-def prepare_args(img_path, data_path, save_masks, ckp_path, out_dir, save_img):
+def prepare_args(img_path, data_path, save_masks, ckpt_path, out_dir, save_img):
     """Prepare arguments for the main function.\n
     **Args**:
         - img_path (str): Path to a single image.\n
         **OR**\n
         - data_path (str): Path to a directory containing images.\n
         - save_masks (bool): Whether to save masks.\n
-        - ckp_path (str): Path to the SAM checkpoint.\n
+        - ckpt_path (str): Path to the SAM checkpoint.\n
         - out_dir (str): Directory to save the output.\n
         - save_img (bool): Whether to save annotated images.\n
     """
@@ -57,7 +63,7 @@ def prepare_args(img_path, data_path, save_masks, ckp_path, out_dir, save_img):
         img_path=img_path,
         data_path=data_path,
         save_masks=save_masks,
-        ckp_path=ckp_path,
+        ckpt_path=ckpt_path,
         out_dir=out_dir,
         save_img=save_img
     )
