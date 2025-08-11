@@ -40,6 +40,8 @@ def parse_args():
     parser.add_argument('--img_path', default=None, help='specify the root path of images and masks')
     parser.add_argument('--data_path', default=None, help='specify the root path of images and masks')
     parser.add_argument('--save_masks', default=True, action='store_true', help='whether to save masks')
+    parser.add_argument('--save_raw_segformer_img', default=False, action='store_true', help='whether to save raw segformer images')
+    parser.add_argument('--save_semantic_img', default=False, action='store_true', help='whether to save semantic images')
     parser.add_argument('--ckpt_path', default='ckp/sam_vit_h_4b8939.pth', help='specify the root path of SAM checkpoint')
     parser.add_argument('--out_dir', help='the dir to save semantic annotations')
     parser.add_argument('--save_img', default=False, action='store_true', help='whether to save annotated images')
@@ -48,7 +50,7 @@ def parse_args():
     
 
 
-def prepare_args(img_path, data_path, save_masks, ckpt_path, out_dir, save_img):
+def prepare_args(img_path, data_path, save_masks, ckpt_path, out_dir, save_img, save_raw_segformer_img=False, save_semantic_img=False):
     """Prepare arguments for the main function.\n
     **Args**:
         - img_path (str): Path to a single image.\n
@@ -65,7 +67,9 @@ def prepare_args(img_path, data_path, save_masks, ckpt_path, out_dir, save_img):
         save_masks=save_masks,
         ckpt_path=ckpt_path,
         out_dir=out_dir,
-        save_img=save_img
+        save_img=save_img,
+        save_raw_segformer_img=save_raw_segformer_img,
+        save_semantic_img=save_semantic_img
     )
     return args
 
@@ -98,12 +102,16 @@ def main(args):
         printr('[Inference done] Semantic segmentation inference is done.')
         del semantic_branch_model, semantic_branch_processor
 
-        save_raw_segformer_masks(image_name_no_ext, args.out_dir, class_ids)
+        if args.save_raw_segformer_img:
+            printr('Saving raw segformer images...')
+            save_raw_segformer_masks(image_name_no_ext, args.out_dir, class_ids)
 
         semantic_class_in_img, semantic_class_names, semantic_bitmasks, semantic_mask, class_names, masks_list = generate_semantic_masks(anns, class_ids, id2label)
         anns, semantic_class_names, semantic_bitmasks = generate_semantic_prediction(anns, semantic_class_in_img, semantic_mask, id2label, semantic_bitmasks, semantic_class_names)
 
-        save_semantic_masks(output_path=args.out_dir, filename=image_name_no_ext, semantic_mask=semantic_mask, semantic_class_names=semantic_class_names)
+        if args.save_semantic_img:
+            printr('Saving semantic images...')
+            save_semantic_masks(output_path=args.out_dir, filename=image_name_no_ext, semantic_mask=semantic_mask, semantic_class_names=semantic_class_names)
         
         printr('[Inference done] Semantic segmentation inference is done.')
         
