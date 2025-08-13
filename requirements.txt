@@ -1,8 +1,4 @@
 matplotlib
-numpy
-Pillow
 pycocotools
 tqdm
 transformers
-opencv-python
-scipy
